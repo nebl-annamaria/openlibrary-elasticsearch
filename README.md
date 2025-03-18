@@ -38,7 +38,7 @@ The repository's data folder contains truncated Open Library dump files for test
 1. **Clone the repository:**
    ```sh
    git clone https://github.com/nebl-annamaria/openlibrary-elasticsearch.git
-   cd openlibrary-es
+   cd openlibrary-elasticsearch
    ```
 2. **Build the Docker image:**
    ```sh
@@ -61,7 +61,7 @@ Using docker compose, the stdin_open: true and tty: true options are already set
 1. **Clone the repository:**
    ```sh
    git clone https://github.com/nebl-annamaria/openlibrary-elasticsearch.git
-   cd openlibrary-es
+   cd openlibrary-elasticsearch
    ```
 2. **Build the project:**
    ```sh
