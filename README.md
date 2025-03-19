@@ -21,15 +21,15 @@ The repository's data folder contains truncated Open Library dump files for test
 
 ## Prerequisites
 
-### General
+### For Docker Deployment
+- Docker
+- Docker Compose
+
+### For Local Deployment without Docker
 - Java 21+
 - Maven
 - Elasticsearch (if running locally, must be compatible with version `8.15.1`)
 - .txt dump files in the data folder
-
-### For Docker Deployment
-- Docker
-- Docker Compose
 
 ## Deployment
 
@@ -88,11 +88,11 @@ Using docker compose, the stdin_open: true and tty: true options are already set
 2. Run the application.
 3. Follow the CLI prompts to:
    - Select the files to index
-   - Choose the corresponding index type (Authors, Works, Editions)
+   - **Choose the corresponding index type (Authors, Works, Editions)**
    - Optionally delete existing indices before indexing
 4. Once finished, you can inspect the indexed data in Kibana or via `curl`:
    ```sh
-   curl -u elastic:your-secure-password http://localhost:9200/authors/_count\?pretty\=true   
+   curl -u elastic:your-secure-password http://localhost:9200/authors/_count  
    ```
 
 ## Configuration

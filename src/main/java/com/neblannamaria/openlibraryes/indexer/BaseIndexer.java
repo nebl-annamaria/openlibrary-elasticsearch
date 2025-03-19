@@ -1,6 +1,7 @@
 package com.neblannamaria.openlibraryes.indexer;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
@@ -30,36 +31,49 @@ public abstract class BaseIndexer {
 
 
 	public void deleteExistingIndex(String indexName) {
+		DeleteIndexRequest request = buildDeleteRequest(indexName);
 		try {
-			DeleteIndexRequest request = new DeleteIndexRequest.Builder().index(indexName).build();
 			DeleteIndexResponse response = elasticsearchClient.indices().delete(request);
 			if (response.acknowledged()) {
 				System.out.println("Index '" + indexName + "' deleted!");
+			}else{
+				System.err.println("❌ Error deleting index: " + indexName);
 			}
 		} catch (Exception e) {
-			System.err.println("Error deleting index: " + e.getMessage());
+			System.err.println("❌ Error deleting index: " + e.getMessage());
 		}
 	}
 
-	private int getTotalLines(Path filePath) throws IOException {
+	private DeleteIndexRequest buildDeleteRequest(String indexName) {
+		return new DeleteIndexRequest
+				.Builder()
+				.index(indexName)
+				.build();
+	}
+
+	private int getTotalLines(Path filePath){
 		System.out.println("Counting the records...");
-		try (InputStream fis = Files.newInputStream(filePath)) {
+		int lines = 0;
+		try (InputStream inputStream = Files.newInputStream(filePath)) {
 			byte[] buffer = new byte[8192];
-			int read, lines = 0;
-			while ((read = fis.read(buffer)) != -1) {
+			int read = 0;
+			while ((read = inputStream.read(buffer)) != -1) {
 				for (int i = 0; i < read; i++) {
 					if (buffer[i] == '\n') lines++;
 				}
 			}
-			return lines;
+		} catch (IOException e) {
+			System.err.println("❌ Error counting the records: " + e.getMessage());
 		}
+
+		return lines;
 	}
 
-	protected abstract Map<String, Object> processLine(String line) throws JsonProcessingException;
+	protected abstract Map<String, Object> processJson(String line) throws JsonProcessingException;
 
 	protected abstract IndexEnum getIndexName();
 
-	public void indexData(Path filePath, String indexName) throws IOException {
+	public void indexData(Path filePath, String indexName){
 		try (BufferedReader br = Files.newBufferedReader(filePath)) {
 			String line;
 			List<BulkOperation> bulkOperations = new ArrayList<>();
@@ -67,36 +81,65 @@ public abstract class BaseIndexer {
 			int totalLines = getTotalLines(filePath);
 
 			while ((line = br.readLine()) != null) {
-				Map<String, Object> document = processLine(line);
+				Map<String, Object> document = processJson(line);
 				if (document == null) continue;
 
-				bulkOperations.add(BulkOperation.of(op -> op.index(i -> i.index(indexName).document(document))));
-
-				count++;
-				logProgress(count, totalLines);
+				bulkOperations.add(buildBulkOperation(indexName,document));
 
 				if (bulkOperations.size() >= BULK_SIZE) {
-					submitBulkOperations(bulkOperations);
+					flushBatch(bulkOperations);
 				}
+				logProgress(count, totalLines);
+				count++;
 			}
 
 			if (!bulkOperations.isEmpty()) {
-				submitBulkOperations(bulkOperations);
+				flushBatch(bulkOperations);
 			}
 
 			logFinishedState();
+		} catch (IOException e) {
+			System.err.println("❌ Error opening file.");
 		}
 	}
 
-	private void submitBulkOperations(List<BulkOperation> bulkOperations) throws IOException {
-		BulkRequest bulkRequest = new BulkRequest.Builder().operations(bulkOperations).build();
-		elasticsearchClient.bulk(bulkRequest);
+	private BulkOperation buildBulkOperation(String indexName, Map<String, Object> document) {
+		return BulkOperation
+				.of(op -> op
+						.index(i -> i.index(indexName)
+								.document(document)
+						));
+	}
+
+	private void flushBatch(List<BulkOperation> bulkOperations) {
+		submitBulkOperations(bulkOperations);
 		bulkOperations.clear();
+	}
+
+	private BulkRequest buildBulkRequest(List<BulkOperation> bulkOperations) {
+		return new BulkRequest
+				.Builder()
+				.operations(bulkOperations)
+				.build();
+	}
+
+	private void submitBulkOperations(List<BulkOperation> bulkOperations){
+		BulkRequest bulkRequest = buildBulkRequest(bulkOperations);
+		try {
+			elasticsearchClient.bulk(bulkRequest);
+		} catch (IOException | ElasticsearchException e) {
+			System.err.println("❌ Error submitting bulk operations: " + e.getMessage());
+		}
 	}
 
 	private void logProgress(int count, int total) {
 		int progress = (int) ((count / (double) total) * 100);
-		System.out.print("\rIndexing progress: "+ count+ "/" + total + " " + progress + "%");
+		System.out.print(
+				"\rIndexing progress: "
+				+ count+ "/"
+				+ total + " "
+				+ progress + "%"
+		);
 	}
 
 	private void logFinishedState() {
@@ -109,9 +152,12 @@ public abstract class BaseIndexer {
 
 	public boolean indexExists(String indexName) {
 		try {
-			return elasticsearchClient.indices().exists(c -> c.index(indexName)).value();
+			return elasticsearchClient.indices()
+					.exists(c -> c.index(indexName)).value();
 		} catch (Exception e) {
-			System.err.println("❌ Hiba az index létezésének ellenőrzésekor: " + e.getMessage());
+			System.err.println(
+					"❌ Error checking if the index exists: "
+							+ e.getMessage());
 			return false;
 		}
 	}

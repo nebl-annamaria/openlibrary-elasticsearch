@@ -33,7 +33,7 @@ public class IndexerServiceImpl implements IndexerService {
 			BaseIndexer indexer = factory.getIndexerForFile(indexEnum);
 			return indexer.indexExists(indexEnum.label);
 		} catch (Exception e) {
-			System.err.println("❌ Hiba történt az index létezésének ellenőrzésekor: " + e.getMessage());
+			System.err.println("❌ Error checking if the index exists: " + e.getMessage());
 			return false;
 		}
 	}

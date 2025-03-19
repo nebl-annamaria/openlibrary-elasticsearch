@@ -14,49 +14,57 @@ import java.util.stream.Collectors;
 
 @Component
 public class EditionIndexer extends BaseIndexer{
+	ObjectMapper objectMapper = getObjectMapper();
 	protected EditionIndexer(ElasticsearchClient elasticsearchClient, ObjectMapper objectMapper) {
 		super(elasticsearchClient, objectMapper);
 	}
 
 	@Override
-	protected Map<String, Object> processLine(String line) throws JsonProcessingException {
+	protected Map<String, Object> processJson(String line){
+		return parseLine(line)
+				.map(this::parseJson)
+				.map(this::sanitizeEditionData)
+				.orElse(null);
+	}
+
+	private static java.util.Optional<String> parseLine(String line) {
 		String[] parts = line.split("\t");
-		if (parts.length < 5) return null;
+		return parts.length >= 5 ? java.util.Optional.of(parts[4]) : java.util.Optional.empty();
+	}
 
-		String jsonPart = parts[4];
-		Map<String, Object> editionData = getObjectMapper().readValue(jsonPart, new TypeReference<>() {});
-
-		Object created = editionData.get("created");
-		if (created instanceof Map) {
-			Object createdValue = ((Map<?, ?>) created).get("value");
-			editionData.put("created", createdValue instanceof String ? createdValue : null);
+	private Map<String, Object> parseJson(String jsonPart) {
+		try {
+			return objectMapper.readValue(jsonPart, new TypeReference<>() {});
+		} catch (JsonProcessingException e) {
+			throw new RuntimeException("Failed to parse JSON", e);
 		}
+	}
 
-		Object lastModified = editionData.get("last_modified");
-		if (lastModified instanceof Map) {
-			Object lastModifiedValue = ((Map<?, ?>) lastModified).get("value");
-			editionData.put("last_modified", lastModifiedValue instanceof String ? lastModifiedValue : null);
-		}
-
-		Object authors = editionData.get("authors");
-		if (authors instanceof List) {
-			List<String> authorKeys = ((List<Map<String, String>>) authors).stream()
-					.map(author -> author.get("key"))
-					.filter(Objects::nonNull)
-					.collect(Collectors.toList());
-			editionData.put("authors", authorKeys);
-		}
-
-		Object works = editionData.get("works");
-		if (works instanceof List) {
-			List<String> workKeys = ((List<Map<String, String>>) works).stream()
-					.map(work -> work.get("key"))
-					.filter(Objects::nonNull)
-					.collect(Collectors.toList());
-			editionData.put("works", workKeys);
-		}
-
+	private Map<String, Object> sanitizeEditionData(Map<String, Object> editionData) {
+		sanitizeField(editionData, "created");
+		sanitizeField(editionData, "last_modified");
+		sanitizeListField(editionData, "authors");
+		sanitizeListField(editionData, "works");
 		return editionData;
+	}
+
+	private void sanitizeField(Map<String, Object> data, String field) {
+		Object value = data.get(field);
+		if (value instanceof Map<?, ?> valueMap) {
+			Object extractedValue = valueMap.get("value");
+			data.put(field, extractedValue instanceof String ? extractedValue : null);
+		}
+	}
+
+	private void sanitizeListField(Map<String, Object> data, String field) {
+		Object listObject = data.get(field);
+		if (listObject instanceof List<?>) {
+			List<String> keys = ((List<Map<String, String>>) listObject).stream()
+					.map(entry -> entry.get("key"))
+					.filter(Objects::nonNull)
+					.collect(Collectors.toList());
+			data.put(field, keys);
+		}
 	}
 
 	@Override
