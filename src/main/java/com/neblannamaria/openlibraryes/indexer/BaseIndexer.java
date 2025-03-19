@@ -6,7 +6,6 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest;
 import co.elastic.clients.elasticsearch.indices.DeleteIndexResponse;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neblannamaria.openlibraryes.enums.IndexEnum;
 import org.springframework.stereotype.Component;
@@ -56,7 +55,7 @@ public abstract class BaseIndexer {
 		int lines = 0;
 		try (InputStream inputStream = Files.newInputStream(filePath)) {
 			byte[] buffer = new byte[8192];
-			int read = 0;
+			int read;
 			while ((read = inputStream.read(buffer)) != -1) {
 				for (int i = 0; i < read; i++) {
 					if (buffer[i] == '\n') lines++;
@@ -69,7 +68,7 @@ public abstract class BaseIndexer {
 		return lines;
 	}
 
-	protected abstract Map<String, Object> processJson(String line) throws JsonProcessingException;
+	protected abstract Map<String, Object> processJson(String line);
 
 	protected abstract IndexEnum getIndexName();
 

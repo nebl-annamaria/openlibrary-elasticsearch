@@ -15,13 +15,12 @@ import java.util.stream.Collectors;
 
 @Component
 public class WorkIndexer extends BaseIndexer{
-	ObjectMapper objectMapper = getObjectMapper();
 	protected WorkIndexer(ElasticsearchClient elasticsearchClient, ObjectMapper objectMapper) {
 		super(elasticsearchClient, objectMapper);
 	}
 
 	@Override
-	protected Map<String, Object> processJson(String line) throws JsonProcessingException {
+	protected Map<String, Object> processJson(String line){
 		return parseLine(line)
 				.map(this::parseJson)
 				.map(this::sanitizeWorkData)
@@ -35,7 +34,7 @@ public class WorkIndexer extends BaseIndexer{
 
 	private Map<String, Object> parseJson(String jsonPart) {
 		try {
-			return objectMapper.readValue(jsonPart, new TypeReference<>() {});
+			return getObjectMapper().readValue(jsonPart, new TypeReference<>() {});
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException("Failed to parse JSON", e);
 		}

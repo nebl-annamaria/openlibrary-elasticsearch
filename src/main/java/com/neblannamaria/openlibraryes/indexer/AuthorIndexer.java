@@ -13,8 +13,6 @@ import java.util.Optional;
 @Component
 public class AuthorIndexer extends BaseIndexer {
 
-	ObjectMapper objectMapper = getObjectMapper();
-
 	public AuthorIndexer(ElasticsearchClient elasticsearchClient, ObjectMapper objectMapper) {
 		super(elasticsearchClient, objectMapper);
 	}
@@ -34,7 +32,7 @@ public class AuthorIndexer extends BaseIndexer {
 
 	private Map<String, Object> parseJson(String jsonPart) {
 		try {
-			return objectMapper.readValue(jsonPart, new TypeReference<>() {});
+			return getObjectMapper().readValue(jsonPart, new TypeReference<>() {});
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException("Failed to parse JSON", e);
 		}

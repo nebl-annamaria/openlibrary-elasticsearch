@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 
 @Component
 public class EditionIndexer extends BaseIndexer{
-	ObjectMapper objectMapper = getObjectMapper();
 	protected EditionIndexer(ElasticsearchClient elasticsearchClient, ObjectMapper objectMapper) {
 		super(elasticsearchClient, objectMapper);
 	}
@@ -34,7 +33,7 @@ public class EditionIndexer extends BaseIndexer{
 
 	private Map<String, Object> parseJson(String jsonPart) {
 		try {
-			return objectMapper.readValue(jsonPart, new TypeReference<>() {});
+			return getObjectMapper().readValue(jsonPart, new TypeReference<>() {});
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException("Failed to parse JSON", e);
 		}
@@ -58,12 +57,17 @@ public class EditionIndexer extends BaseIndexer{
 
 	private void sanitizeListField(Map<String, Object> data, String field) {
 		Object listObject = data.get(field);
-		if (listObject instanceof List<?>) {
-			List<String> keys = ((List<Map<String, String>>) listObject).stream()
-					.map(entry -> entry.get("key"))
-					.filter(Objects::nonNull)
-					.collect(Collectors.toList());
-			data.put(field, keys);
+		if (listObject instanceof List<?> rawList) {
+			if (rawList.stream().allMatch(item -> item instanceof Map<?, ?>)) {
+				List<String> keys = rawList.stream()
+						.map(item -> (Map<?, ?>) item)
+						.map(map -> map.get("key"))
+						.filter(Objects::nonNull)
+						.map(String.class::cast)
+						.collect(Collectors.toList());
+
+				data.put(field, keys);
+			}
 		}
 	}
 

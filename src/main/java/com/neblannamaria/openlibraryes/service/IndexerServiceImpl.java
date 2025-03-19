@@ -16,7 +16,7 @@ public class IndexerServiceImpl implements IndexerService {
 	}
 
 	@Override
-	public void indexFile (IndexEnum indexEnum, Path filePath) throws Exception{
+	public void indexFile (IndexEnum indexEnum, Path filePath){
 		BaseIndexer indexer = factory.getIndexerForFile(indexEnum);
 		indexer.indexData(filePath, indexEnum.label);
 	}
